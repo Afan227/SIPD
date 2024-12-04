@@ -1,9 +1,6 @@
-# SICMDP
-Liangyu Zhang, Yang Peng, Wenhao Yang, Zhihua Zhang. Semi-Infinitely Constrained Markov Decision Processes and Efficient Reinforcement Learning
+# SIPD
 
-The repository includes the implementation of the environments and algorithms (SI-CPO and SI-CPPO) in the paper, see https://github.com/pengyang7881187/SICMDP for the implemntation of SI-CRL algorithm.
-
-The tabular environment discharge of sewage and SI-CPO algorithm are included in *tabular_envs*, and other directories include the code for the ship route planning environment and SI-CPPO algorithm based on RLlib.
+The tabular environment discharge of sewage and SI-PD algorithm are included in *tabular_envs*, and other directories include the code for the ship route planning environment and SI-CPPO algorithm based on RLlib.
 
 ## Requirements
 * [Gurobipy](https://www.gurobi.com/)
