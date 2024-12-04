@@ -1,0 +1,28 @@
+[2024-11-12-17:50:01] Current time: 2024-11-12-17:50:01
+[2024-11-12-17:50:01] Exp name: Exp_0
+[2024-11-12-17:50:01] Env name: random complex pollution envs
+[2024-11-12-17:50:01] Optimize y flag: False
+[2024-11-12-17:50:01] Learning rate alpha: 3.1622776601683795
+[2024-11-12-17:50:01] Inner loop initial learning rate eta_0: 1.0
+[2024-11-12-17:50:01] Radius of the ball W: 32000
+[2024-11-12-17:50:01] Sample y size M: 100
+[2024-11-12-17:50:01] Iter upper bound T: 10
+[2024-11-12-17:50:01] Trajectory number K_eval: 100000
+[2024-11-12-17:50:01] Trajectory length H: 100
+[2024-11-12-17:50:01] Train trajectory number K_sgd: 1000
+[2024-11-12-17:50:01] Train trajectory length H_sgd: 100
+[2024-11-12-17:50:01] Return policy mode: 100
+[2024-11-12-17:50:01] Ground-truth evaluate flag: False
+[2024-11-12-17:50:01] Ground-truth advantage flag: False
+[2024-11-12-17:50:01] Log evaluate flag: True
+[2024-11-12-17:50:01] Check fineness: 1000
+[2024-11-12-17:50:54] Iter 0/10: True Obj: 4.330082893371582, True Max Violate: -2.384185791015625e-06, Sample Max Violate: 0.0009183883666992188 Time: 51.87328577041626s, Total Time: 51.87328577041626s, Valid size: 1
+[2024-11-12-17:51:58] Iter 1/10: True Obj: 4.322023868560791, True Max Violate: 0.012622833251953125, Sample Max Violate: 0.010014533996582031 Time: 63.6294367313385s, Total Time: 115.50272250175476s, Valid size: 2
+[2024-11-12-17:52:45] Iter 2/10: True Obj: 4.259006500244141, True Max Violate: 0.01098012924194336, Sample Max Violate: 0.009624004364013672 Time: 45.93966269493103s, Total Time: 161.4423851966858s, Valid size: 3
+[2024-11-12-17:53:33] Iter 3/10: True Obj: 4.168251037597656, True Max Violate: 0.023299217224121094, Sample Max Violate: 0.024802207946777344 Time: 47.543795585632324s, Total Time: 208.98618078231812s, Valid size: 4
+[2024-11-12-17:54:43] Iter 4/10: True Obj: 4.09575891494751, True Max Violate: 0.027658939361572266, Sample Max Violate: 0.025302410125732422 Time: 69.3872275352478s, Total Time: 278.3734083175659s, Valid size: 5
+[2024-11-12-17:55:52] Iter 5/10: True Obj: 3.887789726257324, True Max Violate: 0.04200172424316406, Sample Max Violate: 0.037396907806396484 Time: 68.63817644119263s, Total Time: 347.01158475875854s, Valid size: 6
+[2024-11-12-17:56:29] Iter 6/10: True Obj: 3.733376979827881, True Max Violate: 0.04562044143676758, Sample Max Violate: 0.04437446594238281 Time: 35.72754502296448s, Total Time: 382.739129781723s, Valid size: 7
+[2024-11-12-17:57:14] Iter 7/10: True Obj: 3.6817662715911865, True Max Violate: 0.04560661315917969, Sample Max Violate: 0.038127899169921875 Time: 44.52292585372925s, Total Time: 427.26205563545227s, Valid size: 8
+[2024-11-12-17:58:10] Iter 8/10: True Obj: 3.7628023624420166, True Max Violate: 0.04526329040527344, Sample Max Violate: 0.045604705810546875 Time: 55.539509296417236s, Total Time: 482.8015649318695s, Valid size: 9
+[2024-11-12-17:59:15] Iter 9/10: True Obj: 3.7254228591918945, True Max Violate: 0.03339815139770508, Sample Max Violate: 0.03336477279663086 Time: 64.15580534934998s, Total Time: 546.9573702812195s, Valid size: 10

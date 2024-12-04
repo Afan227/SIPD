@@ -1,0 +1,20 @@
+[2024-11-14-11:37:04] Current time: 2024-11-14-11:37:04
+[2024-11-14-11:37:04] Exp name: Exp_0
+[2024-11-14-11:37:04] Env name: random complex pollution envs
+[2024-11-14-11:37:04] Optimize y flag: False
+[2024-11-14-11:37:04] Learning rate alpha: 1.4142135623730951
+[2024-11-14-11:37:04] Inner loop initial learning rate eta_0: 1.0
+[2024-11-14-11:37:04] Radius of the ball W: 32000
+[2024-11-14-11:37:04] Sample y size M: 100
+[2024-11-14-11:37:04] Iter upper bound T: 2
+[2024-11-14-11:37:04] Trajectory number K_eval: 100000
+[2024-11-14-11:37:04] Trajectory length H: 100
+[2024-11-14-11:37:04] Train trajectory number K_sgd: 1000
+[2024-11-14-11:37:04] Train trajectory length H_sgd: 100
+[2024-11-14-11:37:04] Return policy mode: 100
+[2024-11-14-11:37:04] Ground-truth evaluate flag: False
+[2024-11-14-11:37:04] Ground-truth advantage flag: False
+[2024-11-14-11:37:04] Log evaluate flag: True
+[2024-11-14-11:37:04] Check fineness: 1000
+[2024-11-14-11:37:47] Iter 0/2: True Obj: 4.330082893371582, True Max Violate: -2.384185791015625e-06, Sample Max Violate: 0.0009183883666992188 Time: 41.47736191749573s, Total Time: 41.47736191749573s, Valid size: 1
+[2024-11-14-11:38:25] Iter 1/2: True Obj: 4.33467960357666, True Max Violate: 0.004397392272949219, Sample Max Violate: 0.007077693939208984 Time: 35.59352350234985s, Total Time: 77.07088541984558s, Valid size: 2

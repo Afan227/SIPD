@@ -1,0 +1,23 @@
+[2024-11-12-18:08:05] Current time: 2024-11-12-18:08:05
+[2024-11-12-18:08:05] Exp name: Exp_0
+[2024-11-12-18:08:05] Env name: random complex pollution envs
+[2024-11-12-18:08:05] Optimize y flag: False
+[2024-11-12-18:08:05] Learning rate alpha: 3.1622776601683795
+[2024-11-12-18:08:05] Inner loop initial learning rate eta_0: 1.0
+[2024-11-12-18:08:05] Radius of the ball W: 32000
+[2024-11-12-18:08:05] Sample y size M: 100
+[2024-11-12-18:08:05] Iter upper bound T: 10
+[2024-11-12-18:08:05] Trajectory number K_eval: 100000
+[2024-11-12-18:08:05] Trajectory length H: 100
+[2024-11-12-18:08:05] Train trajectory number K_sgd: 1000
+[2024-11-12-18:08:05] Train trajectory length H_sgd: 100
+[2024-11-12-18:08:05] Return policy mode: 100
+[2024-11-12-18:08:05] Ground-truth evaluate flag: False
+[2024-11-12-18:08:05] Ground-truth advantage flag: False
+[2024-11-12-18:08:05] Log evaluate flag: True
+[2024-11-12-18:08:05] Check fineness: 1000
+[2024-11-12-18:08:46] Iter 0/10: True Obj: 4.330082893371582, True Max Violate: -2.384185791015625e-06, Sample Max Violate: 0.0009183883666992188 Time: 40.74976563453674s, Total Time: 40.74976563453674s, Valid size: 1
+[2024-11-12-18:09:21] Iter 1/10: True Obj: 4.322023868560791, True Max Violate: 0.012622833251953125, Sample Max Violate: 0.010014533996582031 Time: 33.48334097862244s, Total Time: 74.23310661315918s, Valid size: 2
+[2024-11-12-18:10:03] Iter 2/10: True Obj: 4.259006500244141, True Max Violate: 0.01098012924194336, Sample Max Violate: 0.009624004364013672 Time: 41.48535966873169s, Total Time: 115.71846628189087s, Valid size: 3
+[2024-11-12-18:10:57] Iter 3/10: True Obj: 4.168251037597656, True Max Violate: 0.023299217224121094, Sample Max Violate: 0.024802207946777344 Time: 53.10082244873047s, Total Time: 168.81928873062134s, Valid size: 4
+[2024-11-12-18:11:34] Iter 4/10: True Obj: 4.09575891494751, True Max Violate: 0.027658939361572266, Sample Max Violate: 0.025302410125732422 Time: 36.26443338394165s, Total Time: 205.083722114563s, Valid size: 5

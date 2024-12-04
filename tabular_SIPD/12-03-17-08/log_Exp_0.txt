@@ -1,0 +1,18 @@
+[2024-12-03-17:08:29] Current time: 2024-12-03-17:08:29
+[2024-12-03-17:08:29] Exp name: Exp_0
+[2024-12-03-17:08:29] Env name: random complex pollution envs
+[2024-12-03-17:08:29] Optimize y flag: False
+[2024-12-03-17:08:29] Learning rate alpha: 100.0
+[2024-12-03-17:08:29] Inner loop initial learning rate eta_0: 1.0
+[2024-12-03-17:08:29] Radius of the ball W: 32000
+[2024-12-03-17:08:29] Sample y size M: 100
+[2024-12-03-17:08:29] Iter upper bound T: 10000
+[2024-12-03-17:08:29] Trajectory number K_eval: 100000
+[2024-12-03-17:08:29] Trajectory length H: 100
+[2024-12-03-17:08:29] Train trajectory number K_sgd: 1000
+[2024-12-03-17:08:29] Train trajectory length H_sgd: 100
+[2024-12-03-17:08:29] Return policy mode: 100
+[2024-12-03-17:08:29] Ground-truth evaluate flag: False
+[2024-12-03-17:08:29] Ground-truth advantage flag: False
+[2024-12-03-17:08:29] Log evaluate flag: True
+[2024-12-03-17:08:29] Check fineness: 1000
