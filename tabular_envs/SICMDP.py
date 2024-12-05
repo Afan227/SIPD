@@ -574,9 +574,9 @@ class SICMDPEnv(gym.Env):
 
         return V_c_hat_array
 
-    def s_k(self,V_c_hat_Array,regular) -> Tensor:
+    def s_k(self,V_c_hat_Array,regular,u_array) -> Tensor:
         # s_k = exp(gamma*g/(1+gamma*kappa))
-        V_c_hat_Array = V_c_hat_Array*LR_GAMMA/(1+LR_GAMMA*regular)
+        V_c_hat_Array = (V_c_hat_Array-u_array)*LR_GAMMA/(1+LR_GAMMA*regular)
         return torch.exp(V_c_hat_Array)
 
 
@@ -1101,7 +1101,7 @@ class SICMDPEnv(gym.Env):
         true_max_violat_array = -np.ones((iter_upper_bound))
         max_violat = []
         y_set = self.sample_y(y_size)
-
+        u_array = self.u(y_set)
         self.empty_cache_flag = False
         with tqdm(total=iter_upper_bound, desc=exp_name, unit='iter') as pbar:
             for i in range(iter_upper_bound):
@@ -1146,7 +1146,7 @@ class SICMDPEnv(gym.Env):
                                 self.init_y_for_optimize = self.y0.cpu().numpy().copy()
 
                         if (not optimize_y_flag) or optimize_fail_flag:
-                            u_array = self.u(y_set)
+
                             if gt_evaluate_flag:
                                 V_c_hat_array = self.V_pi_cy(pi=pi, y=y_set)
                             else:
@@ -1214,7 +1214,7 @@ class SICMDPEnv(gym.Env):
                         #     kl *= regualr_coeff
                         #     pi_logit = pi_logit + LR_GAMMA*gradient_sum*LR_GAMMA_COEFF -  kl
                         #     pi = torch_softmax(pi_logit)
-                        pi_logit = pi_logit + LR_GAMMA * gradient_sum * LR_GAMMA_COEFF
+                        pi_logit = pi_logit + LR_GAMMA * gradient_sum
 
                         valid_pi_list.append(pi)
                         valid_pi_list_update_flag = True
@@ -1223,7 +1223,7 @@ class SICMDPEnv(gym.Env):
                         # 计算Vcy
                         #for y in y_set:
                         # V_c_hat_array = self.sample_based_V_pi_cy_set_mu(y_set=y_set, traj_s=traj_s, traj_a=traj_a)
-                        s_k = self.s_k(V_c_hat_array,regualr_coeff)
+                        s_k = self.s_k(V_c_hat_array,regualr_coeff,u_array)
                         ###修改11.22 15:40
 
                         lamda_n_little = lamda_n/M0
