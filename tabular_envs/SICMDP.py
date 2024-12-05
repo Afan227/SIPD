@@ -1154,6 +1154,7 @@ class SICMDPEnv(gym.Env):
                                 V_c_hat_array = self.sample_based_V_pi_cy_set_mu(y_set=y_set, traj_s=traj_s,
                                                                                  traj_a=traj_a)
                                 # shape (y_set,)
+
                             y_star_idx = torch.argmax(V_c_hat_array - u_array)
 
 
