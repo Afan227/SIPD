@@ -1206,13 +1206,14 @@ class SICMDPEnv(gym.Env):
                         #LAMMDA = np.sum(lamda_n)
                         intergration_g = torch.sum(lamda_n.unsqueeze(-1).unsqueeze(-1) *V_c_hat_gradient,dim=0)*VAL_E/y_size
                         gradient_sum = intergration_g + V_r_hat_gradient
-                        pi_old = pi
-                        for _ in range(3):
-                            kl = self.compute_kl(pi,pi_old)
-                            pi_old = pi
-                            kl *= regualr_coeff
-                            pi_logit = pi_logit + LR_GAMMA*gradient_sum*LR_GAMMA_COEFF -  kl
-                            pi = torch_softmax(pi_logit)
+                        # pi_old = pi
+                        # for _ in range(2):
+                        #     kl = self.compute_kl(pi,pi_old)
+                        #     pi_old = pi
+                        #     kl *= regualr_coeff
+                        #     pi_logit = pi_logit + LR_GAMMA*gradient_sum*LR_GAMMA_COEFF -  kl
+                        #     pi = torch_softmax(pi_logit)
+                        pi_logit = pi_logit + LR_GAMMA * gradient_sum * LR_GAMMA_COEFF
 
                         valid_pi_list.append(pi)
                         valid_pi_list_update_flag = True
