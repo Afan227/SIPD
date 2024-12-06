@@ -576,7 +576,7 @@ class SICMDPEnv(gym.Env):
 
     def s_k(self,V_c_hat_Array,regular,u_array) -> Tensor:
         # s_k = exp(gamma*g/(1+gamma*kappa))
-        V_c_hat_Array = (V_c_hat_Array-u_array)*LR_GAMMA/(1+LR_GAMMA*regular)
+        V_c_hat_Array = (V_c_hat_Array-u_array)*1000*LR_GAMMA/(1+LR_GAMMA*regular)
         return torch.exp(V_c_hat_Array)
 
 
@@ -1094,7 +1094,7 @@ class SICMDPEnv(gym.Env):
         valid_pi_list = []
 
         pi_logit = torch.zeros((self.S, self.A), device=self.device)  # Use softmax parametrization by default  8*4矩阵
-        lamda_n = torch.ones(y_size) * M0
+        lamda_n = torch.ones(y_size)
         total_time = 0
 
         true_Obj_array = -np.ones((iter_upper_bound))
@@ -1225,12 +1225,12 @@ class SICMDPEnv(gym.Env):
                         # V_c_hat_array = self.sample_based_V_pi_cy_set_mu(y_set=y_set, traj_s=traj_s, traj_a=traj_a)
                         s_k = self.s_k(V_c_hat_array,regualr_coeff,u_array)
                         ###修改11.22 15:40
-
+                        sum_ = torch.sum(V_c_hat_array-u_array)
                         lamda_n_little = lamda_n/M0
                         lamda_n_l = np.power(lamda_n_little,L)
                         intergration = VAL_E*torch.dot(s_k,lamda_n_l)/y_size
 
-                        lamda_n = min(VAL_E/intergration,1)*s_k*lamda_n_l*M0
+                        lamda_n = min(VAL_E/intergration,1)*s_k*lamda_n_l
 
 
 
