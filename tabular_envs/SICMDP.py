@@ -341,10 +341,6 @@ class SICMDPEnv(gym.Env):
         lb = (P_hat - d_delta < self.P)
         return torch.all((ub & lb) | nan)
 
-    # compute gradient of KL
-    def compute_kl(self, pi,pi_old):
-        pi_dot = pi * (1-pi) *(1+np.log(pi/pi_old))
-        return pi_dot
     # Old code from NIPS22
     # 用高精度进行离散化，将SICMDP转换为CMDP，用线性规划的方式求解
     def SI_plan(self, iter_upper_bound: int, fineness: int, check_fineness: int, silent_flag=True)\
@@ -664,400 +660,6 @@ class SICMDPEnv(gym.Env):
 
 
 
-
-
-
-        # torch implementation
-        # w_array = torch.zeros((train_traj_num, self.S, self.A), device=self.device)
-        # G0 = -2. * (1 - self.gamma) * A_b_hat[0] * score_pi[0]
-        # w_array[0] = torch_project_to_l2_ball(-lr * G0, W)
-        # for k in range(train_traj_num - 1):
-        #     lr *= ((k + 1) / (k + 2))  # eta_{k+1}
-        #     G = 2. * (1 - self.gamma) * (torch.tensordot(score_pi[k+1], w_array[k]) * (1 - self.gamma) -
-        #                                  A_b_hat[k+1]) * score_pi[k+1]
-        #     w_array[k+1] = torch_project_to_l2_ball(w_array[k] - lr * G, W)
-        # gamma_k_array = ((2. * torch.arange(train_traj_num, device=self.device) + 1.) / (train_traj_num * (train_traj_num + 1))).reshape((-1, 1, 1))
-        # return torch.sum(gamma_k_array * w_array, dim=0)
-
-    # iter_upper_bound: T
-    # y_size: M
-    # lr: alpha
-    # eta: threshold for switching between reward and constraint
-    # traj_num: K
-    # traj_len: H
-    def SICPO(self, exp_name: str, log_dir: str, eta=ETA, lr=LR_COEFF / math.sqrt(ITER_UPPER_BOUND), silent_flag=False,
-              iter_upper_bound=ITER_UPPER_BOUND, y_size=SAMPLE_Y_SIZE,
-              traj_num=TRAJ_NUM, traj_len=TRAJ_LEN,
-              train_traj_num=TRAIN_TRAJ_NUM, train_traj_len=TRAIN_TRAJ_LEN,
-              inner_init_lr=INNER_INIT_LR, W=DEFAULT_W, pi_mode=PI_MODE,
-              gt_evaluate_flag=False, gt_advantage_flag=False,
-              log_evaluate_flag=False, check_fineness=CHECK_FINENESS,
-              optimize_y_flag=False
-              ):
-        # Logging
-        if not os.path.exists(log_dir):
-            os.makedirs(log_dir)
-        logfile = os.path.join(log_dir, f'log_{exp_name}.txt')
-        log(f'Current time: {get_datetime_str()}', logfile, silent_flag)
-        log(f'Exp name: {exp_name}', logfile, silent_flag)
-        log(f'Env name: {self.name}', logfile, silent_flag)
-        log(f'Optimize y flag: {optimize_y_flag}', logfile, silent_flag)
-        log(f'Threshold eta: {eta}', logfile, silent_flag)
-        log(f'Learning rate alpha: {lr}', logfile, silent_flag)
-        log(f'Inner loop initial learning rate eta_0: {inner_init_lr}', logfile, silent_flag)
-        log(f'Radius of the ball W: {W}', logfile, silent_flag)
-        log(f'Sample y size M: {y_size}', logfile, silent_flag)
-        log(f'Iter upper bound T: {iter_upper_bound}', logfile, silent_flag)
-        log(f'Trajectory number K_eval: {traj_num}', logfile, silent_flag)
-        log(f'Trajectory length H: {traj_len}', logfile, silent_flag)
-        log(f'Train trajectory number K_sgd: {train_traj_num}', logfile, silent_flag)
-        log(f'Train trajectory length H_sgd: {train_traj_len}', logfile, silent_flag)  # Same as H in the paper
-        log(f'Return policy mode: {pi_mode}', logfile, silent_flag)
-        log(f'Ground-truth evaluate flag: {gt_evaluate_flag}', logfile, silent_flag)  # Use gt to evaluate error
-        log(f'Ground-truth advantage flag: {gt_advantage_flag}', logfile, silent_flag)  # Use gt to compute advantage
-        log(f'Log evaluate flag: {log_evaluate_flag}', logfile, silent_flag)  # Record error at each iteration
-        log(f'Check fineness: {check_fineness}', logfile, silent_flag)  # Check fineness for recording error
-
-        # B in the paper
-        valid_pi_list = []
-
-        pi_logit = torch.zeros((self.S, self.A), device=self.device)  # Use softmax parametrization by default
-
-        total_time = 0
-
-        true_Obj_array = -np.ones((iter_upper_bound))
-        true_max_violat_array = -np.ones((iter_upper_bound))
-
-        self.empty_cache_flag = False
-        with tqdm(total=iter_upper_bound, desc=exp_name, unit='iter') as pbar:
-            for i in range(iter_upper_bound):
-                while True:
-                    try:
-                        old_pi_logit = pi_logit.clone()
-
-                        valid_pi_list_update_flag = False
-
-                        if self.empty_cache_flag:
-                            torch.cuda.empty_cache()
-                        start_time = time.time()
-
-                        # Sample y   进行策略评估  估计策略的tabular的状态价值函数
-                        y_set = self.sample_y(y_size)
-                        # print(f'y_Set:{y_set}')
-                        # Generate pi from pi_logit
-                        # Generate pi from pi_logit
-                        pi = torch_softmax(pi_logit)    # 对于每一个状态下的动作进行归一化
-
-
-
-                        # Sample trajectories for evaluating constraints and selecting y_star
-                        # 采样轨迹进行评估
-                        if gt_evaluate_flag:
-                            traj_num = 100
-                        # shape (traj_num, traj_len)
-                        traj_s, traj_a = self.sample_trajectories(pi=pi, traj_num=traj_num, traj_len=traj_len)
-
-                        # Evaluate constraints and select y_star
-                        # 找出轨迹中超限最大的位置以及超限值
-                        optimize_fail_flag = False
-                        if optimize_y_flag:
-                            assert not gt_evaluate_flag
-                            try:
-                                max_violate, y_star = \
-                                    self.get_optimal_max_avg_monte_carlo_constraint_violat_value_and_pos(
-                                        traj_s, traj_a
-                                    )
-                                y_star = torch.as_tensor(y_star, device=self.device)
-                            except OptimizeError as optimize_error:
-                                warnings.warn(f'Warning: Fail to optimize y with error information: {optimize_error}')
-                                optimize_fail_flag = True
-                                self.init_y_for_optimize = self.y0.cpu().numpy().copy()
-
-                        if (not optimize_y_flag) or optimize_fail_flag:
-                            u_array = self.u(y_set)
-                            if gt_evaluate_flag:
-                                V_c_hat_array = self.V_pi_cy(pi=pi, y=y_set)
-                            else:
-                                # Slow!
-                                V_c_hat_array = self.sample_based_V_pi_cy_set_mu(y_set=y_set, traj_s=traj_s, traj_a=traj_a)
-                                # shape (y_set,)
-                            y_star_idx = torch.argmax(V_c_hat_array - u_array)
-                            y_star = y_set[y_star_idx]
-                            max_violate = V_c_hat_array[y_star_idx] - u_array[y_star_idx]
-
-                        # Sample trajectories for NPG
-                        # Collect initial (s0, a0) from the trajectories we collected before
-                        # traj_s,traj_a 100000*100
-                        # train_init_traj_num_idx_Array,train_init_traj_num_idx_Array 1*1000
-                        # train_init_s_Array 1*1000
-                        train_init_traj_num_idx_array = torch.tensor(np.random.choice(a=traj_num, size=train_traj_num, replace=True), device=self.device)  # 100000选1000
-                        train_init_traj_len_idx_array = torch.tensor(np.random.choice(a=traj_len, size=train_traj_num, replace=True), device=self.device)  # 100选1000
-                        train_init_s_array = traj_s[train_init_traj_num_idx_array, train_init_traj_len_idx_array]  # (train_traj_num,)
-                        train_init_a_array = traj_a[train_init_traj_num_idx_array, train_init_traj_len_idx_array]  # (train_traj_num,)
-
-
-                        del traj_s, traj_a
-                        if self.empty_cache_flag:
-                            torch.cuda.empty_cache()
-
-                        if gt_advantage_flag:
-                            # Ground-truth advantage
-                            # 转换为1000条策略轨迹的初始状态动作
-                            train_Q_traj_s = train_init_s_array.reshape(-1, 1)
-                            train_Q_traj_a = train_init_a_array.reshape(-1, 1)
-
-                            train_V_traj_s = train_Q_traj_s
-                            train_V_traj_a = train_Q_traj_a  # Not used
-
-                        else:
-                            # Sample-based advantage
-                            # Sample Q trajectories  相当于根据上边的 train_Q_traj_s  的初始状态动作采样
-                            # 采样的是状态和动作对，所以计算的是状态动作价值函数
-                            train_Q_traj_s, train_Q_traj_a = self.sample_trajectories(pi=pi, traj_num=train_traj_num,
-                                                                                      traj_len=train_traj_len, init_flag=True,
-                                                                                      init_s_array=train_init_s_array,
-                                                                                      init_a_array=train_init_a_array)
-                            print(f'if:train_Q_traj_S{train_Q_traj_s}')
-                            # print(f'else:train_Q_traj_S{train_Q_traj_s}')
-                            # shape (train_traj_num, train_traj_len)
-                            # Sample V trajectories
-                            # sample a0 from s0 and pi
-                            print(f'p_tensor{pi[train_init_s_array, :]}')
-
-                            V_train_init_a_array = torch_vectorize_choice(p_tensor=pi[train_init_s_array, :], device=self.device)  # (train_traj_num,) 取s所对应的策略分布
-                            print(f'V_train_init_a_array{V_train_init_a_array}')
-                            # 通过对a采样获得执行动作  以此来计算状态价值函数
-                            train_V_traj_s, train_V_traj_a = self.sample_trajectories(pi=pi, traj_num=train_traj_num,
-                                                                                      traj_len=train_traj_len, init_flag=True,
-                                                                                      init_s_array=train_init_s_array,
-                                                                                      init_a_array=V_train_init_a_array)
-                            print(f'train_V_traj_s{train_V_traj_s}')
-
-                            # shape (train_traj_num, train_traj_len)
-
-                        # Update parameter
-                        if max_violate <= eta:
-                            # Update using reward
-                            pi_logit += lr * self.sample_based_NPG(pi=pi, train_Q_traj_s=train_Q_traj_s, train_Q_traj_a=train_Q_traj_a,
-                                                                   train_V_traj_s=train_V_traj_s, train_V_traj_a=train_V_traj_a,
-                                                                   W=W, inner_init_lr=inner_init_lr,
-                                                                   b=self.r, gt_advantage_flag=gt_advantage_flag)
-                            # Add pi to B
-                            valid_pi_list.append(pi)
-                            valid_pi_list_update_flag = True
-                        else:
-                            # Update using y_star constraint
-                            # a = self.sample_based_NPG(pi=pi, train_Q_traj_s=train_Q_traj_s, train_Q_traj_a=train_Q_traj_a,
-                            #                                        train_V_traj_s=train_V_traj_s, train_V_traj_a=train_V_traj_a,
-                            #                                        W=W, inner_init_lr=inner_init_lr,
-                            #                                        b=self.c(y_star), gt_advantage_flag=gt_advantage_flag)
-                            # print(f'aaaaaaaaaaaaaaaaaaaa{a}')
-                            # 8*4 的Vc梯度？
-                            pi_logit -= lr * self.sample_based_NPG(pi=pi, train_Q_traj_s=train_Q_traj_s, train_Q_traj_a=train_Q_traj_a,
-                                                                   train_V_traj_s=train_V_traj_s, train_V_traj_a=train_V_traj_a,
-                                                                   W=W, inner_init_lr=inner_init_lr,
-                                                                   b=self.c(y_star), gt_advantage_flag=gt_advantage_flag)
-
-                        end_time = time.time()
-                        total_time += (end_time - start_time)
-
-                        del train_Q_traj_s, train_Q_traj_a, train_V_traj_s, train_V_traj_a
-                        if self.empty_cache_flag:
-                            torch.cuda.empty_cache()
-
-                        # pi is not update yet here.
-                        if log_evaluate_flag:
-                            print(f'evaluate{pi}')
-                            true_Obj_array[i] = self.Obj_pi(pi)
-                            _, true_max_violat_array[i] = self.check_pi_feasible_true_P(pi, check_fineness)
-
-                    except torch.cuda.OutOfMemoryError as oom_error:
-                        warnings.warn(f'Warning: catch OOM error: {oom_error}')
-                        if self.empty_cache_flag:
-                            raise RuntimeError('Out of memory even if releasing the memory!')
-                        self.empty_cache_flag = True
-                        pi_logit = old_pi_logit
-                        if valid_pi_list_update_flag:
-                            valid_pi_list.pop()
-                        continue
-
-                    log(f'Iter {i}/{iter_upper_bound}: True Obj: {true_Obj_array[i]}, True Max Violate: {true_max_violat_array[i]}, '
-                        f'Sample Max Violate: {max_violate} '
-                        f'Time: {end_time - start_time}s, Total Time: {total_time}s, Valid size: {len(valid_pi_list)}',
-                        logfile, silent_flag)
-                    self.empty_cache_flag = False
-                    pbar.update(1)
-                    break
-        if pi_mode == 'mean':
-            final_pi = torch.mean(torch.tensor(valid_pi_list, device=self.device), dim=0)
-        elif pi_mode == 'last':
-            final_pi = valid_pi_list[-1]
-        else:
-            final_pi = torch.mean(torch.stack(valid_pi_list[-int(pi_mode):]), dim=0)
-        return final_pi, true_Obj_array, true_max_violat_array
-
-    def CRPO(self, exp_name: str, log_dir: str, eta=ETA, lr=LR_COEFF / math.sqrt(ITER_UPPER_BOUND), silent_flag=False,
-             iter_upper_bound=ITER_UPPER_BOUND, grid_fineness=100,
-             traj_num=TRAJ_NUM, traj_len=TRAJ_LEN,
-             train_traj_num=TRAIN_TRAJ_NUM, train_traj_len=TRAIN_TRAJ_LEN,
-             inner_init_lr=INNER_INIT_LR, W=DEFAULT_W, pi_mode=PI_MODE,
-             gt_evaluate_flag=False, gt_advantage_flag=False,
-             log_evaluate_flag=False, check_fineness=CHECK_FINENESS):
-        # Logging
-        if not os.path.exists(log_dir):
-            os.makedirs(log_dir)
-        logfile = os.path.join(log_dir, f'log_{exp_name}.txt')
-        log(f'Current time: {get_datetime_str()}', logfile, silent_flag)
-        log(f'Exp name: {exp_name}', logfile, silent_flag)
-        log(f'Env name: {self.name}', logfile, silent_flag)
-        log(f'Threshold eta: {eta}', logfile, silent_flag)
-        log(f'Learning rate alpha: {lr}', logfile, silent_flag)
-        log(f'Inner loop initial learning rate eta_0: {inner_init_lr}', logfile, silent_flag)
-        log(f'Radius of the ball W: {W}', logfile, silent_flag)
-        log(f'Grid fineness: {grid_fineness}', logfile, silent_flag)
-        log(f'Iter upper bound T: {iter_upper_bound}', logfile, silent_flag)
-        log(f'Trajectory number K_eval: {traj_num}', logfile, silent_flag)
-        log(f'Trajectory length H: {traj_len}', logfile, silent_flag)
-        log(f'Train trajectory number K_sgd: {train_traj_num}', logfile, silent_flag)
-        log(f'Train trajectory length H_sgd: {train_traj_len}', logfile, silent_flag)  # Same as H in the paper
-        log(f'Return policy mode: {pi_mode}', logfile, silent_flag)
-        log(f'Ground-truth evaluate flag: {gt_evaluate_flag}', logfile, silent_flag)  # Use gt to evaluate error
-        log(f'Ground-truth advantage flag: {gt_advantage_flag}', logfile, silent_flag)  # Use gt to compute advantage
-        log(f'Log evaluate flag: {log_evaluate_flag}', logfile, silent_flag)  # Record error at each iteration
-        log(f'Check fineness: {check_fineness}', logfile, silent_flag)  # Check fineness for recording error
-
-        # B in the paper
-        valid_pi_list = []
-
-        pi_logit = torch.zeros((self.S, self.A), device=self.device)  # Use softmax parametrization by default
-
-        total_time = 0
-
-        true_Obj_array = -np.ones((iter_upper_bound))
-        true_max_violat_array = -np.ones((iter_upper_bound))
-
-        # Generate grid.
-        y_set = self.generate_grid(grid_fineness)
-
-        self.empty_cache_flag = False
-        with tqdm(total=iter_upper_bound, desc=exp_name, unit='iter') as pbar:
-            for i in range(iter_upper_bound):
-                while True:
-                    try:
-                        old_pi_logit = pi_logit.clone()
-                        valid_pi_list_update_flag = False
-
-                        if self.empty_cache_flag:
-                            torch.cuda.empty_cache()
-                        start_time = time.time()
-
-                        # Generate pi from pi_logit
-                        pi = torch_softmax(pi_logit)
-
-                        # Sample trajectories for evaluating constraints and selecting y_star
-                        if gt_evaluate_flag:
-                            traj_num = 100
-                        traj_s, traj_a = self.sample_trajectories(pi=pi, traj_num=traj_num, traj_len=traj_len)
-                        # shape (traj_num, traj_len)
-
-                        # Evaluate constraints and select y_star
-                        u_array = self.u(y_set)
-                        if gt_evaluate_flag:
-                            V_c_hat_array = self.V_pi_cy(pi=pi, y=y_set)
-                        else:
-                            # Slow!
-                            V_c_hat_array = self.sample_based_V_pi_cy_set_mu(y_set=y_set, traj_s=traj_s, traj_a=traj_a)
-                        # shape (y_set,)
-                        y_star_idx = torch.argmax(V_c_hat_array - u_array)
-
-                        # Sample trajectories for NPG
-                        # Collect initial (s0, a0) from the trajectories we collected before
-                        train_init_traj_num_idx_array = torch.tensor(np.random.choice(a=traj_num, size=train_traj_num, replace=True), device=self.device)
-                        train_init_traj_len_idx_array = torch.tensor(np.random.choice(a=traj_len, size=train_traj_num, replace=True), device=self.device)
-                        train_init_s_array = traj_s[train_init_traj_num_idx_array, train_init_traj_len_idx_array]  # (train_traj_num,)
-                        train_init_a_array = traj_a[train_init_traj_num_idx_array, train_init_traj_len_idx_array]  # (train_traj_num,)
-                        del traj_s, traj_a
-                        if self.empty_cache_flag:
-                            torch.cuda.empty_cache()
-                        if gt_advantage_flag:
-                            # Ground-truth advantage
-                            train_Q_traj_s = train_init_s_array.reshape(-1, 1)
-                            train_Q_traj_a = train_init_a_array.reshape(-1, 1)
-                            train_V_traj_s = train_Q_traj_s
-                            train_V_traj_a = train_Q_traj_a  # Not used
-                        else:
-                            # Sample-based advantage
-                            # Sample Q trajectories
-                            train_Q_traj_s, train_Q_traj_a = self.sample_trajectories(pi=pi, traj_num=train_traj_num,
-                                                                                      traj_len=train_traj_len, init_flag=True,
-                                                                                      init_s_array=train_init_s_array,
-                                                                                      init_a_array=train_init_a_array)
-                            # shape (train_traj_num, train_traj_len)
-                            # Sample V trajectories
-                            # sample a0 from s0 and pi
-                            V_train_init_a_array = torch_vectorize_choice(p_tensor=pi[train_init_s_array, :], device=self.device)  # (train_traj_num,)
-                            train_V_traj_s, train_V_traj_a = self.sample_trajectories(pi=pi, traj_num=train_traj_num,
-                                                                                      traj_len=train_traj_len, init_flag=True,
-                                                                                      init_s_array=train_init_s_array,
-                                                                                      init_a_array=V_train_init_a_array)
-                        # shape (train_traj_num, train_traj_len)
-
-                        max_violate = V_c_hat_array[y_star_idx] - u_array[y_star_idx]
-
-                        # Update parameter
-                        if max_violate <= eta:
-                            # Update using reward
-                            pi_logit += lr * self.sample_based_NPG(pi=pi, train_Q_traj_s=train_Q_traj_s, train_Q_traj_a=train_Q_traj_a,
-                                                                   train_V_traj_s=train_V_traj_s, train_V_traj_a=train_V_traj_a,
-                                                                   W=W, inner_init_lr=inner_init_lr,
-                                                                   b=self.r, gt_advantage_flag=gt_advantage_flag)
-                            # Add pi to B
-                            valid_pi_list.append(pi)
-                        else:
-                            # Update using y_star constraint
-                            pi_logit -= lr * self.sample_based_NPG(pi=pi, train_Q_traj_s=train_Q_traj_s, train_Q_traj_a=train_Q_traj_a,
-                                                                   train_V_traj_s=train_V_traj_s, train_V_traj_a=train_V_traj_a,
-                                                                   W=W, inner_init_lr=inner_init_lr,
-                                                                   b=self.c(y_set), gt_advantage_flag=gt_advantage_flag)
-
-                        end_time = time.time()
-                        total_time += (end_time - start_time)
-
-                        del train_Q_traj_s, train_Q_traj_a, train_V_traj_s, train_V_traj_a
-                        if self.empty_cache_flag:
-                            torch.cuda.empty_cache()
-
-                        # pi is not update yet here.
-                        if log_evaluate_flag:
-                            true_Obj_array[i] = self.Obj_pi(pi)
-                            _, true_max_violat_array[i] = self.check_pi_feasible_true_P(pi, check_fineness)
-                    except torch.cuda.OutOfMemoryError as oom_error:
-                        warnings.warn(f'Warning: catch OOM error: {oom_error}')
-                        if self.empty_cache_flag:
-                            raise RuntimeError('Out of memory even if releasing the memory!')
-                        self.empty_cache_flag = True
-                        pi_logit = old_pi_logit
-                        if valid_pi_list_update_flag:
-                            valid_pi_list.pop()
-                        continue
-                    log(f'Iter {i}/{iter_upper_bound}: True Obj: {true_Obj_array[i]}, True Max Violate: {true_max_violat_array[i]}, '
-                        f'Sample Max Violate: {max_violate} '
-                        f'Time: {end_time - start_time}s, Total Time: {total_time}s, Valid size: {len(valid_pi_list)}',
-                        logfile, silent_flag)
-                    self.empty_cache_flag = False
-                    pbar.update(1)
-                    break
-        if len(valid_pi_list) == 0:
-            final_pi = torch_softmax(pi_logit)
-        else:
-            if pi_mode == 'mean':
-                final_pi = torch.mean(torch.tensor(valid_pi_list, device=self.device), dim=0)
-            elif pi_mode == 'last':
-                final_pi = valid_pi_list[-1]
-            else:
-                final_pi = torch.mean(torch.stack(valid_pi_list[-int(pi_mode):]), dim=0)
-        return final_pi, true_Obj_array, true_max_violat_array
-
     def SIPD(self, exp_name: str, log_dir: str , lr=LR_GAMMA, regualr_coeff=REGULAR_COEFF,silent_flag=False,
               iter_upper_bound=ITER_UPPER_BOUND, y_size=SAMPLE_Y_SIZE,
               traj_num=TRAJ_NUM, traj_len=TRAJ_LEN,
@@ -1065,7 +667,6 @@ class SICMDPEnv(gym.Env):
               inner_init_lr=INNER_INIT_LR, W=DEFAULT_W, pi_mode=PI_MODE,
               gt_evaluate_flag=False, gt_advantage_flag=False,
               log_evaluate_flag=False, check_fineness=CHECK_FINENESS,
-              optimize_y_flag=False
               ):
         # Logging
         if not os.path.exists(log_dir):
@@ -1074,7 +675,6 @@ class SICMDPEnv(gym.Env):
         log(f'Current time: {get_datetime_str()}', logfile, silent_flag)
         log(f'Exp name: {exp_name}', logfile, silent_flag)
         log(f'Env name: {self.name}', logfile, silent_flag)
-        log(f'Optimize y flag: {optimize_y_flag}', logfile, silent_flag)
         log(f'Learning rate alpha: {lr}', logfile, silent_flag)
         log(f'Inner loop initial learning rate eta_0: {inner_init_lr}', logfile, silent_flag)
         log(f'Radius of the ball W: {W}', logfile, silent_flag)
@@ -1090,79 +690,44 @@ class SICMDPEnv(gym.Env):
         log(f'Log evaluate flag: {log_evaluate_flag}', logfile, silent_flag)  # Record error at each iteration
         log(f'Check fineness: {check_fineness}', logfile, silent_flag)  # Check fineness for recording error
 
-        # B in the paper
-        valid_pi_list = []
+
 
         pi_logit = torch.zeros((self.S, self.A), device=self.device)  # Use softmax parametrization by default  8*4矩阵
-        lamda_n = torch.ones(y_size)
+        lamda_n = torch.ones(y_size)    # initialize prob of lamda
         total_time = 0
+        valid_pi_list = []
 
         true_Obj_array = -np.ones((iter_upper_bound))
-        true_max_violat_array = -np.ones((iter_upper_bound))
-        max_violat = []
-        y_set = self.sample_y(y_size)
-        u_array = self.u(y_set)
+        true_max_violate_array = -np.ones((iter_upper_bound))
+
+
         self.empty_cache_flag = False
         with tqdm(total=iter_upper_bound, desc=exp_name, unit='iter') as pbar:
             for i in range(iter_upper_bound):
                 while True:
                     try:
-                        old_pi_logit = pi_logit.clone()   # 策略tabular 复制
-                        valid_pi_list_update_flag = False
 
                         if self.empty_cache_flag:
                             torch.cuda.empty_cache()
                         start_time = time.time()
 
                         # Sample y   100*[y1,y2] 用于计算max V_pi_cy ?  类似于PD算法中的采样kesai
-
+                        y_set = self.sample_y(y_size)
+                        u_array = self.u(y_set)
 
                         # Generate pi from pi_logit
                         pi = torch_softmax(pi_logit)    # 第一次循环就相当于初始化的初始点x0
                         # pi_old = torch_softmax(old_pi_logit)
                         # Sample trajectories for evaluating constraints and selecting y_star
-                        if gt_evaluate_flag:
-                            traj_num = 100
+
                         # shape (traj_num, traj_len)  100000
                         # update pi
                         # calculate Vr gradient
                         traj_s, traj_a = self.sample_trajectories(pi=pi, traj_num=traj_num, traj_len=traj_len)
 
-                        # Evaluate constraints and select y_star
-                        # 找出轨迹中超限最大的位置以及超限值
-                        optimize_fail_flag = False
-                        if optimize_y_flag:
-                            assert not gt_evaluate_flag
-                            try:
-                                max_violate, y_star = \
-                                    self.get_optimal_max_avg_monte_carlo_constraint_violat_value_and_pos(
-                                        traj_s, traj_a
-                                    )
-                                y_star = torch.as_tensor(y_star, device=self.device)
-
-                            except OptimizeError as optimize_error:
-                                warnings.warn(f'Warning: Fail to optimize y with error information: {optimize_error}')
-                                optimize_fail_flag = True
-                                self.init_y_for_optimize = self.y0.cpu().numpy().copy()
-
-                        if (not optimize_y_flag) or optimize_fail_flag:
-
-                            if gt_evaluate_flag:
-                                V_c_hat_array = self.V_pi_cy(pi=pi, y=y_set)
-                            else:
-                                # Slow!
-                                V_c_hat_array = self.sample_based_V_pi_cy_set_mu(y_set=y_set, traj_s=traj_s,
-                                                                                 traj_a=traj_a)
-                                # shape (y_set,)
-
-                            y_star_idx = torch.argmax(V_c_hat_array - u_array)
-
-
-
-
-                            max_violate = V_c_hat_array[y_star_idx] - u_array[y_star_idx]
-                            max_violat.append(max_violate)
-
+                        pi = pi.to(torch.float32)
+                        V_c_hat_array = self.V_pi_cy(pi=pi, y=y_set)
+                        valid_pi_list.append(pi)
                         # Sample trajectories for NPG
                         # Collect initial (s0, a0) from the trajectories we collected before
                         train_init_traj_num_idx_array = torch.tensor(
@@ -1207,30 +772,17 @@ class SICMDPEnv(gym.Env):
                         #LAMMDA = np.sum(lamda_n)
                         intergration_g = torch.sum(lamda_n.unsqueeze(-1).unsqueeze(-1) *V_c_hat_gradient,dim=0)*VAL_E/y_size
                         gradient_sum = intergration_g + V_r_hat_gradient
-                        # pi_old = pi
-                        # for _ in range(2):
-                        #     kl = self.compute_kl(pi,pi_old)
-                        #     pi_old = pi
-                        #     kl *= regualr_coeff
-                        #     pi_logit = pi_logit + LR_GAMMA*gradient_sum*LR_GAMMA_COEFF -  kl
-                        #     pi = torch_softmax(pi_logit)
                         pi_logit = pi_logit + LR_GAMMA * gradient_sum
 
-                        valid_pi_list.append(pi)
-                        valid_pi_list_update_flag = True
 
-                        # 求得测度积分
-                        # 计算Vcy
-                        #for y in y_set:
-                        # V_c_hat_array = self.sample_based_V_pi_cy_set_mu(y_set=y_set, traj_s=traj_s, traj_a=traj_a)
+
+                        # 测度更新
                         s_k = self.s_k(V_c_hat_array,regualr_coeff,u_array)
-                        ###修改11.22 15:40
-                        sum_ = torch.sum(V_c_hat_array-u_array)
                         lamda_n_little = lamda_n/M0
                         lamda_n_l = np.power(lamda_n_little,L)
                         intergration = VAL_E*torch.dot(s_k,lamda_n_l)/y_size
 
-                        lamda_n = min(VAL_E/intergration,1)*s_k*lamda_n_l
+                        lamda_n = min(VAL_E/intergration,1)*s_k*lamda_n_l*M0
 
 
 
@@ -1245,25 +797,26 @@ class SICMDPEnv(gym.Env):
                         # pi is not update yet here.
                         if log_evaluate_flag:
                             true_Obj_array[i] = self.Obj_pi(pi)
+                            print(true_Obj_array[i])
                             # pi = pi.to(torch.float32)
-                            print(pi.dtype)
-                            _, true_max_violat_array[i] = self.check_pi_feasible_true_P(pi, check_fineness)
+                            print(pi)
+                            _, true_max_violate_array[i] = self.check_pi_feasible_true_P(pi, check_fineness)
+                            print(true_max_violate_array[i])
 
                     except torch.cuda.OutOfMemoryError as oom_error:
                         warnings.warn(f'Warning: catch OOM error: {oom_error}')
                         if self.empty_cache_flag:
                             raise RuntimeError('Out of memory even if releasing the memory!')
                         self.empty_cache_flag = True
-                        pi_logit = old_pi_logit
                         print('update right')
-                        if valid_pi_list_update_flag:
-                            valid_pi_list.pop()
+                        # if valid_pi_list_update_flag:
+                        #     valid_pi_list.pop()
                         continue
 
-                    log(f'Iter {i}/{iter_upper_bound}: True Obj: {true_Obj_array[i]}, True Max Violate: {true_max_violat_array[i]}, '
-                        f'Sample Max Violate: {max_violate} '
-                        f'Time: {end_time - start_time}s, Total Time: {total_time}s, Valid size: {len(valid_pi_list)}',
-                        logfile, silent_flag)
+                    # log(f'Iter {i}/{iter_upper_bound}: True Obj: {true_Obj_array[i]}, True Max Violate: {true_max_violat_array[i]}, '
+                    #     f'Sample Max Violate: {max_violate} '
+                    #     f'Time: {end_time - start_time}s, Total Time: {total_time}s, Valid size: {len(valid_pi_list)}',
+                    #     logfile, silent_flag)
                     self.empty_cache_flag = False
                     pbar.update(1)
                     break
@@ -1273,35 +826,18 @@ class SICMDPEnv(gym.Env):
             final_pi = valid_pi_list[-1]
         else:
             final_pi = torch.mean(torch.stack(valid_pi_list[-int(pi_mode):]), dim=0)
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
 
-        PATH = os.path.join(log_dir, 'violate.csv')
+
         PATH_1 = os.path.join(log_dir, 'obj_array.csv')
         PATH_2 = os.path.join(log_dir, 'violate_eva.csv')
 
 
-        data = pd.DataFrame(data=max_violat, index=None, columns=["obj_value"])
-        data.to_csv(PATH)
+
         data = pd.DataFrame(data=true_Obj_array, index=None, columns=["obj_value"])
         data.to_csv(PATH_1)
-        data = pd.DataFrame(data=true_max_violat_array, index=None, columns=["obj_value"])
+        data = pd.DataFrame(data=true_max_violate_array, index=None, columns=["obj_value"])
         data.to_csv(PATH_2)
-        # 在第一个子图中绘制 list1
-        ax1.plot(max_violat, label='f_val', marker='o', color='blue')
-        ax1.set_title('Objective value')
-        ax1.set_xlabel('iteration')
-        ax1.set_ylabel('value')
-        ax1.legend()
-        ax1.grid()
-
-        # 在第二个子图中绘制 list2
-        ax2.plot(max_violat, label='g_val', marker='x', color='orange')
-        ax2.set_title('Constraints value')
-        ax2.set_xlabel('iteration')
-        ax2.set_ylabel('value')
-        ax2.legend()
-        ax2.grid()
         #plt.show()
-        return final_pi, true_Obj_array, true_max_violat_array
+        return final_pi, true_Obj_array, true_max_violate_array
 
 

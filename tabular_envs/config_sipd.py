@@ -3,15 +3,15 @@ import torch
 import os
 working_dir = '.'
 import torch.nn as nn
-ITER_UPPER_BOUND = 5
+ITER_UPPER_BOUND = 1000
 SAMPLE_NUM_POINT = 1000
-LR_GAMMA = 0.4
+LR_GAMMA = 0.1
 LR_GAMMA_COEFF = 20
-REGULAR_COEFF =0.5
+REGULAR_COEFF =0.02
 
 ETA = 0.013
-VAL_E = 4
-ROU = 380
+VAL_E = 2
+ROU = 100
 M0 = ROU/VAL_E
 LR_COEFF = 1. * sqrt(ITER_UPPER_BOUND)
 

@@ -111,8 +111,7 @@ while True:
         env.SIPD(exp_name=f'Exp_{k}', log_dir=current_dir, lr=lr, regualr_coeff=REGULAR_COEFF,silent_flag=True,
                   iter_upper_bound=iter_upper_bound, y_size=y_size, traj_num=traj_num, traj_len=traj_len,
                   train_traj_num=train_traj_num, train_traj_len=train_traj_len, inner_init_lr=inner_init_lr, W=W,
-                  pi_mode=pi_mode, log_evaluate_flag=True, check_fineness=check_fineness,
-                  optimize_y_flag=args.optimize_y,
+                  pi_mode=pi_mode, log_evaluate_flag=True, check_fineness=check_fineness
                   )
     final_Obj = env.Obj_pi(pi)
     _, final_max_cons_violat = env.check_pi_feasible_true_P(pi, check_fineness)
