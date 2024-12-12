@@ -19,6 +19,7 @@ from torch.linalg import solve
 from scipy.optimize import minimize
 from typing import Callable, Tuple, List
 
+# from train_SIPD import y_size
 # from train_SICPO_and_baseline import y_size
 from .config_sipd import *
 from utils.utility import torch_softmax, log, get_datetime_str, torch_vectorize_choice, \
@@ -575,6 +576,13 @@ class SICMDPEnv(gym.Env):
         V_c_hat_Array = (V_c_hat_Array-u_array)*1000*LR_GAMMA/(1+LR_GAMMA*regular)
         return torch.exp(V_c_hat_Array)
 
+    def y_set_update_lamda(self,y_set,y_set_old,lamda_n_old):
+        lamda_n = torch.zeros(SAMPLE_Y_SIZE)
+        for i in range(len(y_set)):
+            dist = torch.norm(y_set_old - y_set[i], dim=1, p=None)
+            knn = dist.topk(3, largest=False)
+            lamda_n[i] = lamda_n_old[knn.indices].sum()/3
+        return lamda_n
 
 
 
@@ -713,8 +721,10 @@ class SICMDPEnv(gym.Env):
 
                         # Sample y   100*[y1,y2] 用于计算max V_pi_cy ?  类似于PD算法中的采样kesai
                         y_set = self.sample_y(y_size)
+                        if i!=0:
+                            lamda_n = self.y_set_update_lamda(y_set,y_set_old,lamda_n)
                         u_array = self.u(y_set)
-
+                        y_set_old = y_set
                         # Generate pi from pi_logit
                         pi = torch_softmax(pi_logit)    # 第一次循环就相当于初始化的初始点x0
                         # pi_old = torch_softmax(old_pi_logit)
@@ -813,10 +823,9 @@ class SICMDPEnv(gym.Env):
                         #     valid_pi_list.pop()
                         continue
 
-                    # log(f'Iter {i}/{iter_upper_bound}: True Obj: {true_Obj_array[i]}, True Max Violate: {true_max_violat_array[i]}, '
-                    #     f'Sample Max Violate: {max_violate} '
-                    #     f'Time: {end_time - start_time}s, Total Time: {total_time}s, Valid size: {len(valid_pi_list)}',
-                    #     logfile, silent_flag)
+                    log(f'Iter {i}/{iter_upper_bound}: True Obj: {true_Obj_array[i]}, True Max Violate: {true_max_violate_array[i]}, '
+                        f'Time: {end_time - start_time}s, Total Time: {total_time}s, Valid size: {len(valid_pi_list)}',
+                        logfile, silent_flag)
                     self.empty_cache_flag = False
                     pbar.update(1)
                     break
