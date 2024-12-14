@@ -28,7 +28,7 @@ PI_MODE = '100'  # mean, last or str(number)
 
 SEED = 74751
 
-GAMMA = 0.001
+GAMMA = 0.9
 
 CHECK_FINENESS = 1000
 
