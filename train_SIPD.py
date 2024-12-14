@@ -89,9 +89,6 @@ if not os.path.exists(current_dir):
     os.makedirs(current_dir)
 logfile = os.path.join(current_dir, 'log.txt')
 
-baseline_grid_fineness_lst = [15, 22, 32]
-baseline_grid_num_lst = np.array([250, 500, 1000])
-baseline_traj_num_lst = np.array([traj_num] * len(baseline_grid_fineness_lst))
 
 k = 0
 while True:

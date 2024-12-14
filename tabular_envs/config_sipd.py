@@ -3,7 +3,7 @@ import torch
 import os
 working_dir = '.'
 import torch.nn as nn
-ITER_UPPER_BOUND = 10
+ITER_UPPER_BOUND = 3000
 SAMPLE_NUM_POINT = 1000
 LR_GAMMA = 0.1
 LR_GAMMA_COEFF = 20
@@ -16,7 +16,7 @@ M0 = ROU/VAL_E
 LR_COEFF = 1. * sqrt(ITER_UPPER_BOUND)
 
 L = 1/(1+LR_GAMMA*REGULAR_COEFF)
-SAMPLE_Y_SIZE = 100  # 采样100个点
+SAMPLE_Y_SIZE = 300  # 采样100个点
 TRAJ_NUM = 100000
 TRAJ_LEN = 100
 TRAIN_TRAJ_NUM = 1000
@@ -28,7 +28,7 @@ PI_MODE = '100'  # mean, last or str(number)
 
 SEED = 74751
 
-GAMMA = 0.9
+GAMMA = 0.001
 
 CHECK_FINENESS = 1000
 

@@ -147,7 +147,7 @@ class SICMDPEnv(gym.Env):
         vals = (1. / (1. - self.gamma)) * torch.sum(grid_c * q_pi, dim=(1, 2)) - grid_u
         max_cons_violat = torch.max(vals)
         # Small tolerance (Avoid numerical error)
-        if max_cons_violat <= epsilon:
+        if max_cons_violat <= 0:
             feasible_flag = True
         return feasible_flag, float(max_cons_violat)
 
@@ -573,18 +573,20 @@ class SICMDPEnv(gym.Env):
 
     def s_k(self,V_c_hat_Array,regular,u_array) -> Tensor:
         # s_k = exp(gamma*g/(1+gamma*kappa))
-        V_c_hat_Array = (V_c_hat_Array-u_array)*1000*LR_GAMMA/(1+LR_GAMMA*regular)
+        V_c_hat_Array = (V_c_hat_Array-u_array)*LR_GAMMA/(1+LR_GAMMA*regular)
         return torch.exp(V_c_hat_Array)
 
     def y_set_update_lamda(self,y_set,y_set_old,lamda_n_old):
         lamda_n = torch.zeros(SAMPLE_Y_SIZE)
         for i in range(len(y_set)):
             dist = torch.norm(y_set_old - y_set[i], dim=1, p=None)
-            knn = dist.topk(3, largest=False)
-            lamda_n[i] = lamda_n_old[knn.indices].sum()/3
+            #dist_1 = torch.norm(y_set_old - y_set[i], dim=1, p=1)
+            knn = dist.topk(2, largest=False)
+            if dist[knn.indices[1]] < 0.05 :
+                lamda_n[i] = lamda_n_old[knn.indices].sum()/2
+            else:
+                lamda_n[i] = lamda_n_old[knn.indices[0]]
         return lamda_n
-
-
 
 
     # Precise implementation of sample-based NPG
@@ -684,6 +686,9 @@ class SICMDPEnv(gym.Env):
         log(f'Exp name: {exp_name}', logfile, silent_flag)
         log(f'Env name: {self.name}', logfile, silent_flag)
         log(f'Learning rate alpha: {lr}', logfile, silent_flag)
+        log(f'LR_GAMMA: {LR_GAMMA}', logfile, silent_flag)
+        log(f'LR_GAMMA_COEFF: {LR_GAMMA_COEFF}', logfile, silent_flag)
+        log(f'REGULAR_COEFF: {REGULAR_COEFF}', logfile, silent_flag)
         log(f'Inner loop initial learning rate eta_0: {inner_init_lr}', logfile, silent_flag)
         log(f'Radius of the ball W: {W}', logfile, silent_flag)
         log(f'Sample y size M: {y_size}', logfile, silent_flag)
@@ -723,6 +728,7 @@ class SICMDPEnv(gym.Env):
                         y_set = self.sample_y(y_size)
                         if i!=0:
                             lamda_n = self.y_set_update_lamda(y_set,y_set_old,lamda_n)
+
                         u_array = self.u(y_set)
                         y_set_old = y_set
                         # Generate pi from pi_logit
@@ -804,14 +810,12 @@ class SICMDPEnv(gym.Env):
                         if self.empty_cache_flag:
                             torch.cuda.empty_cache()
 
-                        # pi is not update yet here.
+
                         if log_evaluate_flag:
                             true_Obj_array[i] = self.Obj_pi(pi)
-                            print(true_Obj_array[i])
-                            # pi = pi.to(torch.float32)
-                            print(pi)
-                            _, true_max_violate_array[i] = self.check_pi_feasible_true_P(pi, check_fineness)
-                            print(true_max_violate_array[i])
+
+                            flag, true_max_violate_array[i] = self.check_pi_feasible_true_P(pi, check_fineness)
+
 
                     except torch.cuda.OutOfMemoryError as oom_error:
                         warnings.warn(f'Warning: catch OOM error: {oom_error}')
@@ -823,9 +827,9 @@ class SICMDPEnv(gym.Env):
                         #     valid_pi_list.pop()
                         continue
 
-                    log(f'Iter {i}/{iter_upper_bound}: True Obj: {true_Obj_array[i]}, True Max Violate: {true_max_violate_array[i]}, '
-                        f'Time: {end_time - start_time}s, Total Time: {total_time}s, Valid size: {len(valid_pi_list)}',
-                        logfile, silent_flag)
+                    # log(f'Iter {i}/{iter_upper_bound}: True Obj: {true_Obj_array[i]}, True Max Violate: {true_max_violate_array[i]}, '
+                    #     f'Time: {end_time - start_time}s, Total Time: {total_time}s, Valid size: {len(valid_pi_list)}',
+                    #     logfile, silent_flag)
                     self.empty_cache_flag = False
                     pbar.update(1)
                     break
